@@ -1,0 +1,33 @@
+# Creates the GitHub Release with the 2 userscripts. Start it in one of 2 ways:
+# - push a tag v<version> (for example v1.0.0), or
+# - run it by hand (Actions > Release > Run workflow): it creates the tag v<version> from the @version of
+#   qd-toolkit.user.js on the main branch.
+# The userscripts get their updates from "releases/latest/download/<file>" (@updateURL / @downloadURL).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find the version
+        run: |
+          v=$(sed -n 's|^// @version *||p' qd-toolkit.user.js)
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            test "v$v" = "$GITHUB_REF_NAME" || { echo "The tag $GITHUB_REF_NAME is not the version v$v of qd-toolkit.user.js"; exit 1; }
+          fi
+          echo "TAG=v$v" >> "$GITHUB_ENV"
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG" qd-toolkit.user.js qd-toolkit-data.user.js \
+            --target "$GITHUB_SHA" --title "QD Toolkit ${TAG#v}" --generate-notes
