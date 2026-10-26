@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         QD Toolkit
 // @description  An unofficial all-round toolkit for QuantData: one global time slider to replay a session on all charts, σ lines and more.
-// @version      1.0.0
+// @version      1.0.1
 // @namespace    https://github.com/julianhtg/qd-toolkit
 // @homepageURL  https://github.com/julianhtg/qd-toolkit
 // @supportURL   https://github.com/julianhtg/qd-toolkit/issues
@@ -199,11 +199,11 @@
     if (r < 0) r = 0;
     let l = m.findIndex((x) => x >= left);
     // The left time is after the right end (for example a replay before 09:30): show from the first row.
-    // The left end then stays there until the right end passes the left time again (Julian, 2026-10-09).
+    // The left end then stays there until the right end passes the left time again (2026-10-09).
     if (l < 0 || l > r) l = 0;
     let how = 'none';
     if (apply && typeof f.props.onChangeEnd === 'function') {
-      // The Interval Map shows the range of onChange; its onChangeEnd only stores it (Julian, 2026-10-11: with
+      // The Interval Map shows the range of onChange; its onChangeEnd only stores it (2026-10-11: with
       // onChangeEnd alone its time bar did not move; its strike bar moved with the live follow, which calls both).
       if (f.im && typeof f.props.onChange === 'function') f.props.onChange([l, r]);
       f.props.onChangeEnd([l, r]);
@@ -502,6 +502,67 @@
   window.__qdTimeSync = true;
 
   // ---------------------------------------------------------------------------
+  // QuantData's class names
+  // ---------------------------------------------------------------------------
+  // A QuantData release (2026-10-26) changed its CSS module class names from "QDToolLayout-module__FTycCG__container"
+  // to "FTycCG_container" (the module name is gone, the hash stays). This code finds the page parts by the old form, so
+  // each element with a class of a known module also gets the old name as an extra class. QuantData's styles do not use
+  // these names, so the page looks the same. A hash that is not in the list is learned from a class name that only
+  // that module has (for example "toolContentContainer"), because a hash can change with a release.
+  const QD_HASH = {
+    FTycCG: 'QDToolLayout', '95NJjG': 'QDChartHeader', gFACoq: 'QDChartLegendItem', '8jmYzG': 'QDToolHistoricalStatus',
+    gUgvFa: 'QDInfinitePlane', jKT0Ya: 'QDInfinitePlacement', Va5dxa: 'QDChartZoomSlider', u0T5hW: 'nativeChartSurface',
+    'Y-zvlG': 'QDBaseChart', R77Y8G: 'QDChartLoadingPlaceholder', gacg7a: 'QDHeader', qBmrPW: 'QDTimeSlider',
+  };
+  const QD_LEARN = {
+    toolContentContainer: 'QDToolLayout', chartHeader: 'QDChartHeader', chartLegendItem: 'QDChartLegendItem',
+    previewHighlight: 'QDChartZoomSlider', rootVertical: 'QDChartZoomSlider', desktopRow: 'QDHeader', plane: 'QDInfinitePlane',
+  };
+  // A hash that starts with a digit gets a "_" in front ("_95NJjG_title"), because a class name cannot start with a digit.
+  const QD_CLASS = /^_?([A-Za-z0-9_-]{6})_([A-Za-z][A-Za-z0-9]*)$/;
+  function qdAlias(el) {
+    const cl = el.classList;
+    if (!cl || !cl.length) return;
+    let add = null;
+    for (const c of cl) {
+      if (c.length < 8 || c.indexOf('-module__') >= 0) continue;
+      const m = QD_CLASS.exec(c);
+      if (!m) continue;
+      let mod = QD_HASH[m[1]];
+      if (!mod && QD_LEARN[m[2]]) {
+        mod = QD_LEARN[m[2]];
+        QD_HASH[m[1]] = mod;
+        queueMicrotask(() => qdAliasTree(document.documentElement)); // its parts that came before this element
+      }
+      if (!mod) continue;
+      const old = `${mod}-module__${m[1]}__${m[2]}`;
+      if (!cl.contains(old)) (add || (add = [])).push(old);
+    }
+    if (add) cl.add(...add);
+  }
+  function qdAliasTree(root) {
+    if (root.nodeType !== 1) return;
+    qdAlias(root);
+    for (const el of root.querySelectorAll('[class]')) qdAlias(el);
+  }
+  const qdAliasList = (list) => {
+    for (const r of list) {
+      if (r.type === 'attributes') qdAlias(r.target);
+      else for (const n of r.addedNodes) qdAliasTree(n);
+    }
+  };
+  let qdAliasObs = null;
+  // The page can render again in the same task as our code (a key press): take the changes now, before a search.
+  const qdAliasFlush = () => { if (qdAliasObs) qdAliasList(qdAliasObs.takeRecords()); };
+  try {
+    qdAliasTree(document.documentElement);
+    qdAliasObs = new MutationObserver(qdAliasList);
+    qdAliasObs.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+  } catch (err) {
+    console.warn('[QD Toolkit] class names', err);
+  }
+
+  // ---------------------------------------------------------------------------
   // Settings
   // ---------------------------------------------------------------------------
   const STORE_KEY = 'qdTimeSync.v1';
@@ -579,7 +640,7 @@
   const shownEl = (el) => el.getClientRects().length > 0; // display: none (also of a parent) gives no box at all
   const hiddenSliders = new WeakSet();
 
-  // A slider that you switch off stays off by its tool, also when other tools come or go (Julian, 2026-10-11; before,
+  // A slider that you switch off stays off by its tool, also when other tools come or go (2026-10-11; before,
   // cfg.disabled held places in the list, so then another slider was off). The key: "tool:<toolId>|<n>" (the n-th
   // slider of the tool; the tool id from the page data), else "<page>|<tool name>|<n>". cfg.off = the keys that are off.
   const sliderKeys = new WeakMap(); // slider -> key
@@ -696,7 +757,7 @@
     return end;
   }
   const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.round(m) % 60).padStart(2, '0')}`;
-  // The time in the panel: ET, or the time of this computer (option "Show the time in your time zone", Julian,
+  // The time in the panel: ET, or the time of this computer (option "Show the time in your time zone",
   // 2026-10-11). Inside, everything stays in ET minutes (the sync is by ET time). The difference to ET depends on the
   // day (summer time starts on other days in Europe and in the US): the day of the replay (the date chip of the tool
   // of slider 1, read every 10 s), else today.
@@ -1426,11 +1487,11 @@
     -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
     padding: 4px 10px 10px; color: var(--l-text); font-size: 13px;
   }
-  /* The list opens in the middle of the window over a dark backdrop, like the QuantData settings (Julian, 2026-10-11:
+  /* The list opens in the middle of the window over a dark backdrop, like the QuantData settings (2026-10-11:
      before, it opened at the left below its button and looked crammed). The bar of the panel stays above the backdrop,
      so its buttons work while the list is open; docked, the backdrop starts below the header. A click on the backdrop
      closes the list. */
-  /* Dark and blurred like the backdrop of QuantData's own menus (Julian, 2026-10-11: the first one was too light). */
+  /* Dark and blurred like the backdrop of QuantData's own menus (2026-10-11: the first one was too light). */
   .backdrop { position: fixed; left: 0; top: 0; z-index: 2147483644; background: rgba(0, 0, 0, 0.62);
     -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: qdts-fade 0.15s ease-out; }
   .list:not([hidden]) { animation: qdts-fade 0.15s ease-out; } /* no scale: fixAt() measures the box at the opening */
@@ -1583,7 +1644,7 @@
     pointer-events: none; opacity: 0; filter: none;
   }
   .panel.docked .bar .play svg.ring rect { fill: none; stroke: var(--ring, #ff1f1f); stroke-width: var(--ring-w, 2); stroke-linecap: round; }
-  /* Rate limit: a strong red. The budget wait: thinner and light. They must never look alike (Julian). */
+  /* Rate limit: a strong red. The budget wait: thinner and light. They must never look alike. */
   .panel.docked .bar .play.limited svg.ring { opacity: 1; --ring: #ff1f1f; --ring-w: 2; }
   .panel.docked .bar .play.waiting svg.ring { opacity: 1; --ring: color-mix(in srgb, var(--qtext), transparent 55%); --ring-w: 1.4; }
   .panel.docked .bar .play[data-slow]::before {
@@ -1630,10 +1691,10 @@
   .panel.docked .bar .spd:hover { background: color-mix(in srgb, var(--qd), white 15%); }
   .panel.docked .bar .spd:focus-within { outline: 2px solid var(--qtext); outline-offset: 1px; }
   /* RTH: on = filled with the primary color, off = only an outline. The mouse over it makes each only a bit lighter, so
-     the state stays clear also during the hover (Julian, 2026-10-11: on a large screen he could not see if a click
+     the state stays clear also during the hover (2026-10-11: on a large screen you could not see if a click
      switched it on; before, the hover of "off" looked like "on"). */
   /* The outline is a border, not an inset shadow: the browser puts a border on whole device pixels, so both ends
-     are equal at each zoom (Julian, 2026-10-11: with the shadow one end was thicker at some zoom levels). */
+     are equal at each zoom (2026-10-11: with the shadow one end was thicker at some zoom levels). */
   .panel.docked .bar .rth { background: transparent; border: 1.5px solid color-mix(in srgb, var(--qd), transparent 25%);
     color: color-mix(in srgb, var(--qtext), transparent 35%); }
   .panel.docked .bar .rth:hover { background: color-mix(in srgb, var(--qd), transparent 82%); color: var(--qtext); }
@@ -1643,7 +1704,7 @@
   .panel.docked .bar .slow { background: transparent; box-shadow: inset 0 0 0 1px #ff8a7a; color: var(--qtext); }
   .panel.docked .bar .rate { color: #ff8a7a; }
   .panel.docked .bar .pace { color: color-mix(in srgb, var(--qtext), transparent 25%); }
-  /* Narrow: the master slider stays as long as possible (Julian: also on a MacBook). First the start and end
+  /* Narrow: the master slider stays as long as possible (also on a MacBook). First the start and end
      buttons go, then speed, RTH and the rate texts move into the list, then the step buttons go (the keys step too). */
   @container (max-width: 680px) {
     .panel.docked .bar [data-act=start], .panel.docked .bar [data-act=end] { display: none; }
@@ -2080,7 +2141,7 @@
     }
   }
 
-  // The state of Play on the Play button, for the header (Julian, 1.14: no text in the bar, so the buttons do not move):
+  // The state of Play on the Play button, for the header (1.14: no text in the bar, so the buttons do not move):
   // a ring that empties during the rate-limit pause (red) or the budget wait (light), and a badge for the slow speed.
   let ringTimer = 0;
   function updatePlayState() {
@@ -2109,7 +2170,7 @@
     if (kind && docked) ringTimer = setTimeout(updatePlayState, 100); // A smooth ring between the refreshes.
   }
 
-  // The budget in the list, always shown (Julian, 1.14): the free requests, a meter with the reserve, the cost of 1 step.
+  // The budget in the list, always shown (1.14): the free requests, a meter with the reserve, the cost of 1 step.
   function showBudget() {
     const cost = stepCost();
     const free = Math.max(0, Math.min(BUDGET_CAP, budgetNow()));
@@ -2149,7 +2210,7 @@
   // The left end goes to 09:30 ET only when you switch the bar on, after a page load, and on the RTH jump
   // to the start or the end. Else it stays where it is (also where you dragged it).
   // The right end is at the synced minute (the last row at or before it), so the chart never shows the future.
-  // (Up to 1.12 it stayed 2 minutes behind, because a drag could not hit the exact minute. Julian, 2026-10-10: the exact minute fits.)
+  // (Up to 1.12 it stayed 2 minutes behind, because a drag could not hit the exact minute. 2026-10-10: the exact minute fits.)
   // A mask covers the preview in the zoom bar after the right end (the preview shows the full day).
   // ---------------------------------------------------------------------------
   const hasToken = (el, re) => [...el.classList].some((c) => re.test(c));
@@ -2168,6 +2229,7 @@
     } catch { /* not for us */ }
   });
   function bridge(op, args) {
+    qdAliasFlush();
     bridgeAnswer = undefined;
     const id = ++bridgeSeq;
     document.dispatchEvent(new CustomEvent('qdts:req', { detail: JSON.stringify({ id, op, args }) }));
@@ -2570,11 +2632,11 @@
     keepLinkView(groups);
   }
 
-  // The list keeps the strike charts while QuantData loads them (Julian, 2026-10-11): a step removes the header and the
+  // The list keeps the strike charts while QuantData loads them (2026-10-11): a step removes the header and the
   // zoom bar of each strike chart for its load, and the rows of "Linked strike charts" and the σ fields must not go away
   // or move for that time. A chart that is not on the page stays in the list while its tool is on the page (max 60 s;
   // it comes back after the load), else 3 s. The day of its date chip stays too (readSdAuto). A tool in a hidden tab
-  // is not in the list (Julian, 2026-10-11; it stays in its group, so it has the range of the group when it shows).
+  // is not in the list (2026-10-11; it stays in its group, so it has the range of the group when it shows).
   const VIEW_KEEP_MS = 60000;
   const VIEW_GONE_MS = 3000;
   const linkShown = new Map(); // chart key -> { key, title, gid, label, ticker, day, tool, at }
@@ -2648,7 +2710,7 @@
       }
     }
   }
-  // Live follow (Julian, 2026-10-10: "seamless"): while you drag or wheel in a chart of a group, read its range in
+  // Live follow (2026-10-10: "seamless"): while you drag or wheel in a chart of a group, read its range in
   // each frame and give the others the same strikes with their bar's onChange (at most once per frame). When you
   // release the button (or 250 ms after the last wheel event), each other chart gets the final range once with
   // onChangeEnd, so QuantData stores it. A chart without onChange follows only then. Never blocks your input.
@@ -2849,12 +2911,12 @@
   // "+1σ" / "−1σ" above the strike axis. QuantData's own legend of the chart gets 2 items: "+1σ <price>", "−1σ <price>".
   // ---------------------------------------------------------------------------
   const SD_DAYS = 15.87;
-  const SD_LEVELS = [1, 2, 3]; // Julian, 2026-10-11: only ±1σ, ±2σ, ±3σ (nobody uses 0.5, 1.2, 1.5)
+  const SD_LEVELS = [1, 2, 3]; // 2026-10-11: only ±1σ, ±2σ, ±3σ (nobody uses 0.5, 1.2, 1.5)
   cfg.sd = { ...defaults.sd, ...cfg.sd };
   const sdStored = Array.isArray(cfg.sd.levels) ? cfg.sd.levels : defaults.sd.levels;
   cfg.sd.levels = sdStored.filter((k) => SD_LEVELS.includes(k));
   if (!cfg.sd.levels.length && sdStored.length) cfg.sd.levels = [...defaults.sd.levels]; // only old levels were stored
-  // A typed value is for 1 day: the day of the strike charts when you typed it (Julian, 2026-10-11; before, a typed VIX
+  // A typed value is for 1 day: the day of the strike charts when you typed it (2026-10-11; before, a typed VIX
   // won over the correct automatic value on each later day). Stored as { v, day }. On another day the field is empty and
   // the automatic value counts; on its day again, your value comes back. A number of 0.17 gets the day of the charts at
   // the first read (day null until then).
@@ -3027,7 +3089,7 @@
   }
 
   // The fields are built again only when the tickers change. A new automatic value changes only the grey placeholder,
-  // so the list keeps its size and a field that you type in keeps its focus (Julian, 2026-10-11).
+  // so the list keeps its size and a field that you type in keeps its focus (2026-10-11).
   const sdFields = new Map(); // 'vix' | 'close:<ticker>' -> { span, inp }
   let sdFieldKeys = '';
   function sdFieldOf(k) {
@@ -3093,7 +3155,7 @@
         });
         sdLv.append(b);
       }
-      // "i": shows the values of ±1σ, ±2σ and ±3σ (Julian, 2026-10-11: below the levels, only when you want them).
+      // "i": shows the values of ±1σ, ±2σ and ±3σ (2026-10-11: below the levels, only when you want them).
       const info = document.createElement('button');
       info.type = 'button';
       info.className = 'sd-info';
@@ -3110,7 +3172,7 @@
     buildSdCharts();
     updateSdOut();
   }
-  // The charts with σ lines (Julian, 2026-10-11: not on every strike chart): 1 row per strike chart with a ticker (also
+  // The charts with σ lines (2026-10-11: not on every strike chart): 1 row per strike chart with a ticker (also
   // the Interval Map). Off = cfg.sd.charts[bar key] false. Built again only when the charts change (linkShown).
   let sdChartKeys = '';
   function buildSdCharts() {
@@ -3215,7 +3277,7 @@
     return item && item !== head ? item : null;
   }
   // The σ items in QuantData's legend: copies of its last item, so they look like QuantData's own. All selected levels:
-  // "+1σ <price>", "−1σ <price>", "+2σ …". They go into the legend row when they fit (Julian, 2026-10-11: no 2nd row
+  // "+1σ <price>", "−1σ <price>", "+2σ …". They go into the legend row when they fit (2026-10-11: no 2nd row
   // for ±1σ); else into a 2nd row (a copy of the legend container). Built again when the texts or the width change.
   const sdLegendState = new WeakMap(); // tool -> { sig, nodes }
   function sdItem(item, text) {
@@ -3232,7 +3294,7 @@
       }
     }
     if (!done) c.append(text);
-    // Never cut: QuantData's items shrink and end with "…" when the row is full (Julian, 2026-10-11: with 3 levels the
+    // Never cut: QuantData's items shrink and end with "…" when the row is full (2026-10-11: with 3 levels the
     // values could not be read). Our copies keep their full width; a row without room moves them into the 2nd row.
     Object.assign(c.style, { flex: 'none', minWidth: 'max-content' });
     for (const e of c.querySelectorAll('*')) Object.assign(e.style, { maxWidth: 'none', overflow: 'visible', textOverflow: 'clip' });
@@ -3314,7 +3376,7 @@
   }
   // A step loads the strike charts: QuantData removes the header and the zoom bar, gives the chart canvas the height of
   // its placeholder and other layout values. Meanwhile the σ canvas stays as it is (no hide, no redraw with the loading
-  // layout; Julian, 2026-10-11: no blink, no wrong places, no label jump). Only in the normal refresh (400 ms) and with
+  // layout; 2026-10-11: no blink, no wrong places, no label jump). Only in the normal refresh (400 ms) and with
   // cheap checks: no frame loop (a frame loop in 1945e7b made the page lag and the charts load 4-5 times slower).
   const SD_KEEP_MS = 3000; // a load takes about 0.5-1.5 s; a chart in a hidden tab can stay without its zoom bar
   const sdToolLoading = (tool) => !!tool && (!!tool.querySelector('[class*="QDChartLoadingPlaceholder-module__"]')
@@ -3413,7 +3475,7 @@
     readSdAuto();
     const shown = new Set();
     // Strike charts (strikes on the x axis: vertical lines) and the Interval Map (its vertical bar: strikes on the y axis,
-    // horizontal lines; Julian, 2026-10-11). A chart can be switched off in the list (cfg.sd.charts, by bar key).
+    // horizontal lines; 2026-10-11). A chart can be switched off in the list (cfg.sd.charts, by bar key).
     const strike = zoomBars.filter((z) => z.info && z.info.strikes && z.tool && z.tool.isConnected);
     const bars = cfg.sd.on ? strike.filter((z) => sdTicker(z) && sdSigma(sdTicker(z)) && cfg.sd.charts[z.key] !== false) : [];
     for (const z of strike) if (!bars.includes(z)) setLegend(z, null);
@@ -3585,6 +3647,7 @@
 
   // The chart part of a tool: the chart header and the chart container (canvas and zoom bar).
   function chartParts(tool) {
+    qdAliasFlush();
     const all = [...tool.querySelectorAll('[class]')];
     const head = all.find((n) => hasToken(n, /^QDChartHeader-module__.*__chartHeader$/));
     const chart = all.find((n) => hasToken(n, /^QDBaseChart-module__.*__container$/));
@@ -3666,7 +3729,7 @@
     });
     // A small spinner at the top right: new data loads. In the chart header (title and legend are in the middle,
     // the right part is free on the real page), else at the top right of the plot (the largest canvas).
-    // Never at the bottom: there it covers the price scale (Julian, 1.14).
+    // Never at the bottom: there it covers the price scale (1.14).
     const headI = parts.findIndex((p) => hasToken(p, /^QDChartHeader-module__.*__chartHeader$/));
     const chart = parts.find((p) => hasToken(p, /^QDBaseChart-module__.*__container$/));
     const plot = chart && [...chart.querySelectorAll('canvas')].map((c) => c.getBoundingClientRect())
@@ -3685,6 +3748,7 @@
   }
 
   function freezeTools(moves) {
+    qdAliasFlush();
     if (!cfg.freeze) return;
     const tools = new Map(); // tool -> its moving sliders
     for (const el of activeSliders()) {
@@ -3720,7 +3784,7 @@
 
   // Reloads from another session of this page. QuantData moves the sliders of a page in all its sessions (about 0.5 s
   // after the step, REALSITE-1.md section 8), and each session loads the new data. A Safari web app has its own storage,
-  // so no message of the panel there reaches this tab (Julian, 2026-10-11: Play in Safari on the large screen, the same
+  // so no message of the panel there reaches this tab (2026-10-11: Play in Safari on the large screen, the same
   // page in a web app on the MacBook). Thus: when a time slider moves without an action of this panel, this tab keeps
   // a picture of each chart with a time slider (after each load, max 5 s old) and puts it on top when QuantData shows
   // its loading placeholder after a time change (a MutationObserver runs before the page paints). The first reload
@@ -3902,7 +3966,7 @@
   function buildReport(clicked, x, y) {
     scan();
     const rep = {
-      tool: 'QD Toolkit 1.0',
+      tool: 'QD Toolkit 1.0.1',
       path: location.pathname,
       nowET: hhmm(nowEt()),
       viewport: [innerWidth, innerHeight],
@@ -4049,6 +4113,7 @@
   }
 
   function refresh() {
+    qdAliasFlush();
     mount(); // The page removed the panel, or the header came or went: put it in its place again.
     scan();
     const sl = activeSliders();
