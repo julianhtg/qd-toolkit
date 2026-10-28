@@ -155,6 +155,10 @@ If something does not work, send a message on Discord (`bsjuli`) or open an [iss
 
 QD Toolkit runs only in your browser. It sends no data to other servers and does not call the QuantData API.
 
+Do you enjoy QD Toolkit? A morning coffee helps me to keep the project going ☕
+
+<a href="https://ko-fi.com/julianhtg"><img alt="Support on Ko-fi" src="https://img.shields.io/badge/Support_on_Ko--fi-c95c54?style=for-the-badge&logo=ko-fi&logoColor=white"></a>
+
 ## License
 
 MIT. See [LICENSE](LICENSE). QuantData and its data belong to Quant Data LLC.
