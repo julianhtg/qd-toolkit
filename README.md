@@ -45,9 +45,24 @@ QuantData has a time slider in each chart. QD Toolkit adds one control panel to 
 
 <p align="center"><img src="docs/media/net-drift-zoom.webp" alt="The zoom bar of Net Drift follows each step, and the panel covers the future part of the preview" width="720"></p>
 
+### Cache: instant steps, fewer requests (Beta)
+
+QD Toolkit keeps the minutes that you loaded before. A step back to such a minute shows at once and uses none of your request limit. Turn it on in the menu: Replay › Cache › Enable cache.
+
+<p align="center"><img src="docs/onboarding/cache.webp" alt="Steps over minutes from the cache show at once" width="720"></p>
+
+### A price chart for backtesting
+
+The custom price chart replaces the Stock Price / Time chart. It shows the candles up to the replay minute only, with a fixed candle width and free pan and zoom. Candles of 1 minute to 1 hour, or a line. Add price lines at strikes with a click on the price axis.
+
+- **Trade buttons:** buy and sell at the replay price for paper trading (ES / MES, NQ / MNQ, RTY / M2K). Drag a take profit and a stop loss out of the position line. The position closes when the replay reaches them.
+- **Gap close:** a box and a label show the overnight gap and how much of it is filled.
+
+<p align="center"><img src="docs/onboarding/pricechart.webp" alt="The custom price chart during a replay" width="720"></p>
+
 ### Standard deviation lines
 
-The strike charts show the expected move of the session (the 15.87 rule): prior close ± 1σ, 2σ or 3σ, with 1σ = prior close × prior-close VIX ÷ 15.87 %. The panel reads the prior close and the VIX automatically.
+The strike charts show the expected move of the session (the 15.87 rule): prior close ± 1σ, 2σ or 3σ, with 1σ = prior close × prior-close VIX ÷ 15.87 %. The panel reads the prior close and the VIX automatically. The lines can also show on the custom price chart.
 
 <table>
   <tr>
@@ -60,9 +75,11 @@ The strike charts show the expected move of the session (the 15.87 rule): prior 
 
 - **Linked strike charts:** zoom one strike chart, and the other charts of the same ticker show the same strikes.
 - **Crosshair line in all charts:** move the mouse on one chart, and the other charts show a line at the same strike or minute.
+- **Draggable value scale:** the value axis of the strike charts stays fixed, so you can compare 2 minutes. Drag it to change the range.
 - **Time in your time zone:** the panel can show all times in your local time.
 - **All tabs together:** a step in one QuantData tab also moves the charts in your other QuantData tabs.
-- **Clean settings:** one list in the middle of the window for all options.
+- **Clean settings:** one menu in the middle of the window, in 5 categories, in 3 sizes.
+- **Setup guide:** at the first start, a short guide shows the features and their switches.
 
 <table>
   <tr>
@@ -71,7 +88,7 @@ The strike charts show the expected move of the session (the 15.87 rule): prior 
   </tr>
 </table>
 
-<p align="center"><img src="docs/media/settings.webp" alt="All settings in one list in the middle of the window" width="100%"></p>
+<p align="center"><img src="docs/media/settings.webp" alt="The menu in the middle of the window: the category Price chart with the chart, candle, grid and price line options" width="100%"></p>
 
 ## Install
 
@@ -121,6 +138,7 @@ Use only one copy of QD Toolkit. If two copies run (for example in two userscrip
 | `→` or `.` | All sliders go 1 step forward. |
 | `←` or `,` | All sliders go 1 step back. |
 | `Shift` + `→` / `←` | All sliders go 5 steps. |
+| `Cmd` + `→` / `←` (Windows: `Ctrl`) | All sliders go to the end or to the start. |
 | `-` | Play or pause. |
 | Master slider | Drag it and release it. All sliders go to this time. |
 | Time field | Shows the time in ET, or in your time zone (see [Time](docs/GUIDE.md#time)). Click it, type a time (for example `10:45`, `1045` or `1:45 pm`), then push `Enter`. All sliders go to this time. `Esc` cancels. |
@@ -128,12 +146,12 @@ Use only one copy of QD Toolkit. If two copies run (for example in two userscrip
 | "RTH" | Turns the RTH range on or off. With "RTH" on, the start and end buttons, the master slider and play use 09:30–16:00 ET only. When "RTH" is on, the button is filled with color. When it is off, the button has only an outline. |
 | Speed menu | Sets the time between two steps during play. "Auto" waits until QuantData has loaded the data for the step. Play can wait longer because of the request budget (see [Rate limit](docs/GUIDE.md#rate-limit)). |
 | "≠ Align" | Shows when the sliders have different times. Click it to move all sliders to the time of slider 1. |
-| Slider icon with number | Shows the number of active sliders. Click it to open the slider list. The list opens in the middle of the window, and the page behind it gets darker. To close the list, click the slider icon again, click outside the list, or push `Esc`. |
+| Menu button (slider icon with number) | Shows the number of active sliders. Click it to open the menu with all settings. The menu opens in the middle of the window, and the page behind it gets darker. To close the menu, click the button again, click outside the menu, or push `Esc`. |
 | `–` button | Makes the panel small. Click the small panel to open it again. Only the panel at the bottom of the page has this button. |
 
-For all details (zoom bars, linked charts, standard deviation lines, rate limit, limits and privacy), see the **[user guide](docs/GUIDE.md)**.
+For all details (setup, cache, price chart, trade buttons, zoom bars, linked charts, standard deviation lines, rate limit, limits and privacy), see the **[user guide](docs/GUIDE.md)**.
 
-If something does not work, open an [issue](https://github.com/julianhtg/qd-toolkit/issues). The panel can copy a report for it: click the slider icon, then "Copy report…".
+If something does not work, send a message on Discord (`bsjuli`) or open an [issue](https://github.com/julianhtg/qd-toolkit/issues). The panel can copy a report for it: open the menu, click "General", then "Copy report…".
 
 QD Toolkit runs only in your browser. It sends no data to other servers and does not call the QuantData API.
 
