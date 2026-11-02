@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         QD Toolkit
 // @description  An unofficial all-round toolkit for QuantData: one global time slider to replay a session on all charts, σ lines and more.
-// @version      1.1.0
+// @version      1.1.1
 // @namespace    https://github.com/julianhtg/qd-toolkit
 // @homepageURL  https://github.com/julianhtg/qd-toolkit
 // @supportURL   https://github.com/julianhtg/qd-toolkit/issues
@@ -440,7 +440,9 @@
         else hi = mid;
       }
       const pre = lo > 0 ? rows[lo - 1] : null;
-      if (pre) out.push({ k: root.getAttribute('data-qdts-bar'), day: dayFmt.format(new Date(pre.epochMillisTimestamp)), cents: pre.stockPriceInCents });
+      // Also the first row of the day (00:00 ET): on 2026-11-02 the rows before 09:30 had 2 values (00:00-03:00 ET the
+      // right close 7,580, 03:00-09:29 a wrong 7,561), so content.js compares them.
+      if (pre) out.push({ k: root.getAttribute('data-qdts-bar'), day: dayFmt.format(new Date(pre.epochMillisTimestamp)), cents: pre.stockPriceInCents, first: rows[0].stockPriceInCents });
     }
     return out;
   }
@@ -5451,6 +5453,19 @@
       const z = zoomBars.find((x) => x.k === r.k);
       const tk = z && tickerOf(z.tool);
       if (!tk || tk === 'VIX' || !SD_INDEX.test(tk) || !(r.cents > 0) || (day && r.day !== day)) continue;
+      // 2 values before the open that differ by more than 1 point (2026-11-02: 7,580 from 00:00 to 03:00 ET, then a wrong
+      // 7,561 up to 09:29; on other days they differ by some cents): the price chart of the day before wins, else the
+      // value of 00:00. The field tip names both.
+      if (r.first > 0 && Math.abs(r.first - r.cents) > 100) {
+        const both = `Net Drift ${r.day} before 09:30: ${usd(r.first / 100)} at 00:00, ${usd(r.cents / 100)} at 09:29`;
+        if (out.close[tk] != null) {
+          out.from[tk] = `${out.from[tk]} (${both})`;
+        } else {
+          out.close[tk] = r.first / 100;
+          out.from[tk] = `${both}; the value of 00:00`;
+        }
+        continue;
+      }
       out.close[tk] = r.cents / 100;
       out.from[tk] = `Net Drift ${r.day}`;
     }
