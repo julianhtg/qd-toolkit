@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         QD Toolkit
 // @description  An unofficial all-round toolkit for QuantData: one global time slider to replay a session on all charts, σ lines and more.
-// @version      1.1.1
+// @version      1.1.2
 // @namespace    https://github.com/julianhtg/qd-toolkit
 // @homepageURL  https://github.com/julianhtg/qd-toolkit
 // @supportURL   https://github.com/julianhtg/qd-toolkit/issues
@@ -1774,8 +1774,10 @@
   // QuantData slider values are minutes. The start point depends on the ticker:
   //   SPX (range 0–1440): minutes from 00:00 ET. 570 = 09:30.
   //   SPY, QQQ, stocks (range 0–390 / 0–405): minutes from 09:30 ET. 405 = 16:15.
+  //   Extended hours (range 0–525, since 2026-10-19): minutes from 07:30 ET. 525 = 16:15.
   // The panel works in ET minutes from midnight. QuantData itself shows your local time.
   const RTH_OPEN = 570;  // 09:30 ET
+  const PRE_OPEN = 450;  // 07:30 ET: the extended hours of options (Cboe, since 2026-10-19)
   const RTH_CLOSE = 960; // 16:00 ET
 
   const defaults = { x: null, y: null, collapsed: false, speed: 'auto', rth: true, off: [], zoom: {}, zoomMask: true, freeze: true, link: {}, xhair: true,
@@ -1932,17 +1934,20 @@
     // A complete day has a fixed range.
     if (r.max === 1440 || r.max === 1439) return 0;      // SPX: full day from 00:00 ET
     if (r.max === 390 || r.max === 405) return RTH_OPEN; // SPY, QQQ, stocks: from 09:30 ET
+    // Options with extended hours (Cboe, since 2026-10-19: SPY, QQQ and others, 07:30 to 16:15 ET): 525 minutes from 07:30.
+    if (r.max === 525) return PRE_OPEN;
     // A live day ends at the current time. Compare the end of the slider with the clock.
     const now = nowEt();
     if (Math.abs(r.max - now) <= LIVE_TOLERANCE) return 0;
     if (now >= RTH_OPEN && Math.abs(r.max - (now - RTH_OPEN)) <= LIVE_TOLERANCE) return RTH_OPEN;
+    if (now >= PRE_OPEN && Math.abs(r.max - (now - PRE_OPEN)) <= LIVE_TOLERANCE) return PRE_OPEN;
     return NaN;
   }
   const isTime = (r) => !isNaN(timeBase(r));
   const etOf = (r) => timeBase(r) + r.value;
 
   // A live slider ends at the current time (not at the end of a full day).
-  const FULL_ENDS = [1439, 1440, 390, 405];
+  const FULL_ENDS = [1439, 1440, 390, 405, 525];
   const isLive = (r) => isTime(r) && !FULL_ENDS.includes(r.max);
   // On a live day, no slider may go after the latest data. Some QuantData sliders allow
   // the full session also on a live day, so the live sliders set the limit for all sliders.

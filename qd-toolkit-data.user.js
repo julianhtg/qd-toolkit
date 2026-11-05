@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         QD Toolkit Data
 // @description  Optional helper for QD Toolkit: loads the prior-close VIX from the free daily VIX history of Cboe (not from QuantData).
-// @version      1.1.1
+// @version      1.1.2
 // @namespace    https://github.com/julianhtg/qd-toolkit
 // @homepageURL  https://github.com/julianhtg/qd-toolkit
 // @supportURL   https://github.com/julianhtg/qd-toolkit/issues
